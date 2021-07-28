@@ -9,7 +9,7 @@ class token_resolver {
   token_resolver(const std::string &sm_url, const std::string &client_id, const std::string &secret);
   ~token_resolver();
 
-  std::string get_token();
+  std::string get_token(const std::string &scope);
 
   static void global_init();
   static void global_cleanup();

@@ -26,6 +26,7 @@ class engine {
 	std::string smartmarket_url;
         std::string smartmarket_client_id;
         std::string smartmarket_secret;
+        std::string smartmarket_scope;
         std::string smartspeech_token;
   };
  public:
@@ -35,7 +36,7 @@ class engine {
   mrcp_engine_t *mrcp_engine() const;
   void set_config(const config &config);
 
-  void start_service();
+  bool start_service();
   void stop_service();
 
   channel *create_channel(apr_pool_t *pool);

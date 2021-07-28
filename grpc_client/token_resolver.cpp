@@ -56,7 +56,7 @@ static size_t on_received(void *received_data, size_t size, size_t count, void *
   return realsize;
 }
 
-std::string token_resolver::get_token() {
+std::string token_resolver::get_token(const std::string &scope) {
   curl_ = curl_easy_init();
 
   std::string token{};
@@ -77,7 +77,9 @@ std::string token_resolver::get_token() {
   curl_easy_setopt(curl_, CURLOPT_PASSWORD, secret_.c_str());
 
   curl_easy_setopt(curl_, CURLOPT_POST, 1L);
-  curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, "scope=SMART_SPEECH");
+  std::string scope_opt = std::string{"scope="} + scope;
+  curl_easy_setopt(curl_, CURLOPT_POSTFIELDS, scope_opt.c_str());
+  curl_easy_setopt(curl_, CURLOPT_TIMEOUT, 3L);
 
   std::string secret_url = url_ + "/api/v2/oauth";
   curl_easy_setopt(curl_, CURLOPT_URL, secret_url.c_str());
@@ -87,7 +89,11 @@ std::string token_resolver::get_token() {
     auto json = nlohmann::json::parse(token);
     if (json.count("access_token")) {
       token_ = json["access_token"];
+    } else {
+      std::cerr << "smartspecch: get token err: can't find token in the SmartMarket API response\n";
     }
+  } else {
+    std::cerr << "smartspeech: get token err: " << curl_easy_strerror(res) << std::endl;
   }
   curl_slist_free_all(hs);
   curl_easy_cleanup(curl_);

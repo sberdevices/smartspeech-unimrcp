@@ -100,8 +100,7 @@ channel::channel(const params &params)
     , event_loop_(params.event_loop)
     , smartspeech_grpc_client_(params.smartspeech_grpc_client)
     , state_(state::idle)
-    , synthesis_request_(nullptr)
-{
+    , synthesis_request_(nullptr) {
   mrcp_params_.voice_name = "May_LQ";
 
   /* create termination for audio */
@@ -110,9 +109,11 @@ channel::channel(const params &params)
 
   capabilities = mpf_source_stream_capabilities_create(params.pool);
   mpf_codec_capabilities_add(&capabilities->codecs, MPF_SAMPLE_RATE_8000, "LPCM");
-  termination = mrcp_engine_audio_termination_create(this, &smartspeech_mrcp_synthesis_audio_stream_vtable, capabilities, params.pool);
+  termination = mrcp_engine_audio_termination_create(this, &smartspeech_mrcp_synthesis_audio_stream_vtable,
+                                                     capabilities, params.pool);
 
-  mrcp_channel_ = mrcp_engine_channel_create(params.mrcp_engine, &smartspeech_mrcp_synthesis_channel_vtable, this, termination, params.pool);
+  mrcp_channel_ = mrcp_engine_channel_create(params.mrcp_engine, &smartspeech_mrcp_synthesis_channel_vtable, this,
+                                             termination, params.pool);
 }
 
 channel::~channel() {}
@@ -198,6 +199,11 @@ void channel::on_voice(const smartspeech::grpc::synthesis::result &result) {
   }
 }
 
+void channel::on_error(const std::string &error_msg) {
+  shedule_stop_synthesis();
+  send_error_event(error_msg);
+}
+
 void channel::send_mrcp_response(mrcp_message_t *response) {
   apt_task_t *task = apt_consumer_task_base_get(event_loop_);
   apt_task_msg_t *msg = apt_task_msg_get(task);
@@ -215,10 +221,27 @@ void channel::send_result_event() {
   auto response = mrcp_event_create(synthesis_request_, SYNTHESIZER_SPEAK_COMPLETE, synthesis_request_->pool);
   response->start_line.request_state = MRCP_REQUEST_STATE_COMPLETE;
   auto header = static_cast<mrcp_synth_header_t *>(mrcp_resource_header_prepare(response));
-  if(header) {
+  if (header) {
     header->completion_cause = SYNTHESIZER_COMPLETION_CAUSE_NORMAL;
-    mrcp_resource_header_property_add(response,SYNTHESIZER_HEADER_COMPLETION_CAUSE);
+    mrcp_resource_header_property_add(response, SYNTHESIZER_HEADER_COMPLETION_CAUSE);
   }
+  send_mrcp_response(response);
+}
+
+void channel::send_error_event(const std::string &error_msg) {
+  mrcp_message_t *response =
+      mrcp_event_create(synthesis_request_, SYNTHESIZER_SPEAK_COMPLETE, synthesis_request_->pool);
+  response->start_line.request_state = MRCP_REQUEST_STATE_COMPLETE;
+  mrcp_synth_header_t *resource_header = NULL;
+  resource_header = static_cast<mrcp_synth_header_t *>(mrcp_resource_header_prepare(response));
+  resource_header->completion_cause = SYNTHESIZER_COMPLETION_CAUSE_ERROR;
+  mrcp_resource_header_property_add(response, SYNTHESIZER_HEADER_COMPLETION_CAUSE);
+
+  if (!error_msg.empty()) {
+    apt_string_assign(&resource_header->completion_reason, error_msg.c_str(), response->pool);
+    mrcp_resource_header_property_add(response, SYNTHESIZER_HEADER_COMPLETION_REASON);
+  }
+
   send_mrcp_response(response);
 }
 
@@ -229,9 +252,16 @@ void channel::update_mrcp_params(mrcp_message_t *request) {
 void channel::start_synthesis(const std::string &text) {
   smartspeech::grpc::synthesis::connection::params p{};
   p.text = text;
-  smartspeech_grpc_synthesis_connection_ = smartspeech_grpc_client_->start_synth_connection(p,[this](const smartspeech::grpc::synthesis::result &result){
-    this->on_voice(result);
-  }).release();
+  smartspeech_grpc_synthesis_connection_ = smartspeech_grpc_client_
+                                               ->start_synth_connection(
+                                                   p,
+                                                   [this](const smartspeech::grpc::synthesis::result &result) {
+                                                     this->on_voice(result);
+                                                   },
+                                                   [this](const std::string &error_msg) {
+                                                     this->on_error(error_msg);
+                                                   })
+                                               .release();
   state_ = state::synthesis;
 }
 
@@ -261,7 +291,7 @@ void channel::process_set_params(mrcp_message_t *request) {
   send_mrcp_response(response);
 }
 
-void channel::process_synthesis(mrcp_message_t *request){
+void channel::process_synthesis(mrcp_message_t *request) {
   update_mrcp_params(request);
   synthesis_request_ = request;
   std::string text = request->body.buf;
@@ -286,4 +316,4 @@ void channel::process_stop(mrcp_message_t *request) {
     apt_task_msg_signal(task, msg);
   }
 }
-}  // namespace smartspeech::mrcp::recognition
+}  // namespace smartspeech::mrcp::synthesis

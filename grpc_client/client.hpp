@@ -11,16 +11,12 @@
 namespace smartspeech::grpc {
 class abstract_connection;
 struct grpc_event_tag {
-  enum class cause { start_call,
-					 write,
-					 read,
-					 writes_done,
-					 finish,
-					 alarm };
+  enum class cause { start_call, write, read, writes_done, finish, alarm };
   cause cause;
   abstract_connection *connection;
   grpc_event_tag(enum cause c, abstract_connection *ptr)
-	  : cause(c), connection(ptr) {}
+      : cause(c)
+      , connection(ptr) {}
 };
 class abstract_connection {
  public:
@@ -49,19 +45,21 @@ struct result {
 class connection : public abstract_connection {
  public:
   using on_result = std::function<void(const result &)>;
+  using on_error = std::function<void(const std::string &)>;
+
   struct params {
-	uint16_t audio_encoding_flag;
-	int32_t sample_rate;
-	std::string model;
-	int32_t hypotheses_count;
-	bool enable_multi_utterance;
-	bool enable_partial_results;
-	size_t no_speech_timeout_ms;
-	size_t max_speech_timeout_ms;
+    uint16_t audio_encoding_flag;
+    int32_t sample_rate;
+    std::string model;
+    int32_t hypotheses_count;
+    bool enable_multi_utterance;
+    bool enable_partial_results;
+    size_t no_speech_timeout_ms;
+    size_t max_speech_timeout_ms;
   };
 
   connection(const std::shared_ptr<::grpc::Channel> &channel, ::grpc::CompletionQueue &cq, const params &p,
-			 on_result &&cb);
+             on_result &&result_cb, on_error &&error_cb);
   void feed(uint8_t *buffer, size_t size);
   void writes_done();
 
@@ -79,8 +77,8 @@ class connection : public abstract_connection {
 
  private:
   std::unique_ptr<::grpc::ClientAsyncReaderWriter<smartspeech::recognition::v1::RecognitionRequest,
-												  smartspeech::recognition::v1::RecognitionResponse>>
-	  responder_;
+                                                  smartspeech::recognition::v1::RecognitionResponse>>
+      responder_;
   ::grpc::CompletionQueue &cq_;
   smartspeech::recognition::v1::RecognitionResponse response_;
   ::grpc::Alarm alarm_;
@@ -90,11 +88,12 @@ class connection : public abstract_connection {
 
   params params_;
   on_result on_result_cb_;
+  on_error on_error_cb_;
 
   bool write_pending_;
   std::atomic_bool writes_done_;
 };
-}// namespace recognition
+}  // namespace recognition
 
 namespace synthesis {
 struct result {
@@ -105,12 +104,14 @@ struct result {
 class connection : public abstract_connection {
  public:
   using on_result = std::function<void(const result &)>;
+  using on_error = std::function<void(const std::string &)>;
+
   struct params {
-	std::string text;
+    std::string text;
   };
 
   connection(const std::shared_ptr<::grpc::Channel> &channel, ::grpc::CompletionQueue &cq, const params &p,
-			 on_result &&cb);
+             on_result &&result_cb, on_error &&error_cb);
 
   virtual void proceed(enum grpc_event_tag::cause cause, bool ok) override;
 
@@ -125,26 +126,29 @@ class connection : public abstract_connection {
   smartspeech::synthesis::v1::SynthesisResponse response_;
   params params_;
   on_result on_result_cb_;
+  on_error on_error_cb_;
 };
-}// namespace synthesis
+}  // namespace synthesis
 
 class client {
  public:
   struct params {
-	std::string host;
-	std::string token;
-	std::string root_ca;
+    std::string host;
+    std::string token;
+    std::string root_ca;
   };
   explicit client(const params &p);
   ~client();
   std::unique_ptr<recognition::connection> start_recognition_connection(const recognition::connection::params &p,
-																		recognition::connection::on_result &&cb);
+                                                                        recognition::connection::on_result &&result_cb,
+                                                                        recognition::connection::on_error &&error_cb);
   std::unique_ptr<synthesis::connection> start_synth_connection(const synthesis::connection::params &p,
-																synthesis::connection::on_result &&cb);
+                                                                synthesis::connection::on_result &&result_cb,
+                                                                synthesis::connection::on_error &&error_cb);
 
  private:
   ::grpc::CompletionQueue cq_;
   std::shared_ptr<::grpc::Channel> channel_;
   std::thread worker_thread_;
 };
-}// namespace smartspeech::grpc
+}  // namespace smartspeech::grpc

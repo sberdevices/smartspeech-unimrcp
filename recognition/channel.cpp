@@ -202,6 +202,11 @@ void channel::on_result(const smartspeech::grpc::recognition::result &result) {
   }
 }
 
+void channel::on_error(const std::string &error_msg) {
+  shedule_stop_recognize();
+  send_error_event(error_msg);
+}
+
 void channel::send_mrcp_response(mrcp_message_t *response) {
   apt_task_t *task = apt_consumer_task_base_get(event_loop_);
   apt_task_msg_t *msg = apt_task_msg_get(task);
@@ -247,6 +252,23 @@ void channel::send_result_event(const std::string &result_message) {
   send_mrcp_response(response);
 }
 
+void channel::send_error_event(const std::string &error_msg) {
+  mrcp_message_t *response =
+      mrcp_event_create(recognize_request_, RECOGNIZER_RECOGNITION_COMPLETE, recognize_request_->pool);
+  response->start_line.request_state = MRCP_REQUEST_STATE_COMPLETE;
+  mrcp_recog_header_t *resource_header = NULL;
+  resource_header = static_cast<mrcp_recog_header_t *>(mrcp_resource_header_prepare(response));
+  resource_header->completion_cause = RECOGNIZER_COMPLETION_CAUSE_ERROR;
+  mrcp_resource_header_property_add(response, RECOGNIZER_HEADER_COMPLETION_CAUSE);
+
+  if (!error_msg.empty()) {
+    apt_string_assign(&resource_header->completion_reason, error_msg.c_str(), response->pool);
+    mrcp_resource_header_property_add(response, RECOGNIZER_HEADER_COMPLETION_REASON);
+  }
+
+  send_mrcp_response(response);
+}
+
 void channel::update_mrcp_params(mrcp_message_t *request) {
   auto *recognition_header = static_cast<mrcp_recog_header_t *>(mrcp_resource_header_get(request));
   if (recognition_header) {
@@ -275,9 +297,16 @@ void channel::start_recognize() {
   p.no_speech_timeout_ms = mrcp_params_.no_input_timeout_ms;
   p.max_speech_timeout_ms = mrcp_params_.max_speech_timeout_ms;
 
-  smartspeech_grpc_recognition_connection_ = smartspeech_grpc_client_->start_recognition_connection(p, [this](const smartspeech::grpc::recognition::result &result){
-    this->on_result(result);
-  }).release();
+  smartspeech_grpc_recognition_connection_ = smartspeech_grpc_client_
+                                                 ->start_recognition_connection(
+                                                     p,
+                                                     [this](const smartspeech::grpc::recognition::result &result) {
+                                                       this->on_result(result);
+                                                     },
+                                                     [this](const std::string &error_msg) {
+                                                       this->on_error(error_msg);
+                                                     })
+                                                 .release();
   state_ = state::waiting_vad;
 }
 

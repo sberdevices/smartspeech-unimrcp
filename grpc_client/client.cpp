@@ -52,21 +52,24 @@ client::~client() {
 }
 
 std::unique_ptr<recognition::connection> client::start_recognition_connection(const recognition::connection::params &p,
-                                                                              recognition::connection::on_result &&cb) {
-  return std::make_unique<recognition::connection>(channel_, cq_, p, std::move(cb));
+                                                                              recognition::connection::on_result &&result_cb,
+                                                                              recognition::connection::on_error &&error_cb) {
+  return std::make_unique<recognition::connection>(channel_, cq_, p, std::move(result_cb), std::move(error_cb));
 }
 
 std::unique_ptr<synthesis::connection> client::start_synth_connection(const synthesis::connection::params &p,
-                                                                      synthesis::connection::on_result &&cb) {
-  return std::make_unique<synthesis::connection>(channel_, cq_, p, std::move(cb));
+                                                                      synthesis::connection::on_result &&result_cb,
+                                                                      synthesis::connection::on_error &&error_cb) {
+  return std::make_unique<synthesis::connection>(channel_, cq_, p, std::move(result_cb), std::move(error_cb));
 }
 
 recognition::connection::connection(const std::shared_ptr<::grpc::Channel> &channel, ::grpc::CompletionQueue &cq,
-                                    const params &p, on_result &&cb)
+                                    const params &p, on_result &&result_cb, on_error &&error_cb)
     : abstract_connection(channel)
     , cq_(cq)
     , params_(p)
-    , on_result_cb_(std::move(cb))
+    , on_result_cb_(std::move(result_cb))
+    , on_error_cb_(std::move(error_cb))
     , write_pending_(false)
     , writes_done_(false) {
   auto *event_tag = new grpc_event_tag(grpc_event_tag::cause::start_call, this);
@@ -83,12 +86,16 @@ void recognition::connection::feed(uint8_t *buffer, size_t size) {
 }
 
 void recognition::connection::proceed(enum grpc_event_tag::cause cause, bool ok) {
-  if (!status_.ok()) {
-    // todo: passthrough errors
-    std::cerr << "proceed error: " << status_.error_message() << std::endl;
+  // check status after Finish() call
+  if (cause == grpc_event_tag::cause::finish && !status_.ok()) {
+    std::cerr << "smartspeech grpc error: " << status_.error_message() << std::endl;
+    on_error_cb_(status_.error_message());
+    return;
   }
 
-  if (!ok) {
+  // there are no more messages to be received from the server (earlier call to AsyncReaderInterface::Read that yielded a failed result
+  // cq->Next(&read_tag, &ok) filled in 'ok' with 'false'
+  if (cause == grpc_event_tag::cause::read && !ok) {
     auto event_tag = new grpc_event_tag(grpc_event_tag::cause::finish, this);
     responder_->Finish(&status_, event_tag);
     return;
@@ -186,12 +193,14 @@ void recognition::connection::on_read() {
 }
 
 synthesis::connection::connection(const std::shared_ptr<::grpc::Channel> &channel, ::grpc::CompletionQueue &cq,
-                                  const params &p, on_result &&cb)
+                                  const params &p, on_result &&result_cb, on_error &&error_cb)
     : abstract_connection(channel)
     , stub_(smartspeech::synthesis::v1::SmartSpeech::NewStub(channel))
     , cq_(cq)
     , params_(p)
-    , on_result_cb_(std::move(cb)) {
+    , on_result_cb_(std::move(result_cb))
+    , on_error_cb_(std::move(error_cb))
+{
   auto *event_tag = new grpc_event_tag(grpc_event_tag::cause::start_call, this);
 
   smartspeech::synthesis::v1::SynthesisRequest request;
@@ -205,11 +214,16 @@ synthesis::connection::connection(const std::shared_ptr<::grpc::Channel> &channe
 }
 
 void synthesis::connection::proceed(enum grpc_event_tag::cause cause, bool ok) {
-  if (!status_.ok()) {
-    std::cerr << "proceed error: " << status_.error_message() << std::endl;
+  // check status after Finish() call
+  if (cause == grpc_event_tag::cause::finish && !status_.ok()) {
+    std::cerr << "smartspeech grpc error: " << status_.error_message() << std::endl;
+    on_error_cb_(status_.error_message());
+    return;
   }
 
-  if (!ok) {
+  // there are no more messages to be received from the server (earlier call to AsyncReaderInterface::Read that yielded a failed result
+  // cq->Next(&read_tag, &ok) filled in 'ok' with 'false'
+  if (cause == grpc_event_tag::cause::read && !ok) {
     auto event_tag = new grpc_event_tag(grpc_event_tag::cause::finish, this);
     responder_->Finish(&status_, event_tag);
     return;

@@ -39,11 +39,13 @@ class channel {
   apt_bool_t on_close();
   apt_bool_t on_message(mrcp_message_t *request);
   void on_result(const smartspeech::grpc::recognition::result &result);
+  void on_error(const std::string &error_msg);
 
  private:
   void send_mrcp_response(mrcp_message_t *response);
   void send_start_of_input_event();
   void send_result_event(const std::string &result_message);
+  void send_error_event(const std::string &error_msg);
   void update_mrcp_params(mrcp_message_t *request);
   void start_recognize();
   void shedule_stop_recognize();

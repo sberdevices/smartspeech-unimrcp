@@ -40,10 +40,12 @@ class channel {
   apt_bool_t on_close();
   apt_bool_t on_message(mrcp_message_t *request);
   void on_voice(const smartspeech::grpc::synthesis::result &result);
+  void on_error(const std::string &error_msg);
 
  private:
   void send_mrcp_response(mrcp_message_t *response);
   void send_result_event();
+  void send_error_event(const std::string &error_msg);
   void update_mrcp_params(mrcp_message_t *request);
   void start_synthesis(const std::string &text);
   void shedule_stop_synthesis();

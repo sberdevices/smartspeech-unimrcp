@@ -16,7 +16,7 @@ extern "C" {
 
 #include <memory>
 #include <vector>
-#include <grpc_client/client.hpp>
+#include "grpc_client/client.hpp"
 
 namespace smartspeech::mrcp::recognition {
 class channel {

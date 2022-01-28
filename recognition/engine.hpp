@@ -13,8 +13,8 @@ extern "C" {
 
 #include <string>
 #include <memory>
-#include <grpc_client/client.hpp>
-#include <grpc_client/token_resolver.hpp>
+#include "grpc_client/client.hpp"
+#include "grpc_client/token_resolver.hpp"
 
 #include "channel.hpp"
 

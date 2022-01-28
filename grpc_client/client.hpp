@@ -2,9 +2,11 @@
 
 #include <grpc++/grpc++.h>
 #include <grpcpp/alarm.h>
-#include <recognition.grpc.pb.h>
-#include <synthesis.grpc.pb.h>
 
+#include "grpc_client/recognition.grpc.pb.h"
+#include "grpc_client/synthesis.grpc.pb.h"
+
+#include <memory>
 #include <string>
 #include <thread>
 

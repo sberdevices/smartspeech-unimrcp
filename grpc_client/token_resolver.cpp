@@ -1,15 +1,29 @@
 #include "token_resolver.hpp"
 
 #include <iostream>
+#include <random>
 #include <nlohmann/json.hpp>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-#include <apr_uuid.h>
-#ifdef __cplusplus
+
+namespace {
+std::string get_uuid() {
+  static std::random_device dev;
+  static std::mt19937 rng(dev());
+
+  std::uniform_int_distribution<int> dist(0, 15);
+
+  const char *v = "0123456789abcdef";
+  const bool dash[] = { 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0 };
+
+  std::string res;
+  for (int i = 0; i < 16; i++) {
+      if (dash[i]) res += "-";
+      res += v[dist(rng)];
+      res += v[dist(rng)];
+  }
+  return res;
 }
-#endif
+}
 
 namespace smartspeech {
 
@@ -33,15 +47,9 @@ token_resolver::token_resolver(const std::string &sm_url, const std::string &cli
     : url_(sm_url)
     , client_id_(client_id)
     , secret_(secret)
-    , curl_(nullptr) {
-  apr_uuid_t apr_uuid;
-  apr_uuid_get(&apr_uuid);
-  std::string uuid_str;
-  uuid_str.resize(APR_UUID_FORMATTED_LENGTH + 1);
-  apr_uuid_format(uuid_str.data(), &apr_uuid);
-
-  uuid_.assign(uuid_str);
-}
+    , curl_(nullptr)
+    , uuid_(get_uuid())
+{}
 
 token_resolver::~token_resolver() {}
 

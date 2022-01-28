@@ -11,8 +11,8 @@ extern "C" {
 }
 #endif
 
-#include <grpc_client/client.hpp>
-#include <grpc_client/token_resolver.hpp>
+#include "grpc_client/client.hpp"
+#include "grpc_client/token_resolver.hpp"
 #include <memory>
 #include <string>
 

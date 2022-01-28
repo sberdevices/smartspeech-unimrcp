@@ -17,7 +17,7 @@ extern "C" {
 #include <memory>
 #include <vector>
 #include <mutex>
-#include <grpc_client/client.hpp>
+#include "grpc_client/client.hpp"
 
 namespace smartspeech::mrcp::synthesis {
 class channel {

@@ -207,7 +207,8 @@ synthesis::connection::connection(const std::shared_ptr<::grpc::Channel> &channe
   request.set_text(p.text);
   request.set_audio_encoding(smartspeech::synthesis::v1::SynthesisRequest_AudioEncoding_PCM_S16LE);
   request.set_language("ru-RU");
-  request.set_content_type(smartspeech::synthesis::v1::SynthesisRequest_ContentType_TEXT);
+  auto content_type = (p.is_ssml) ? smartspeech::synthesis::v1::SynthesisRequest_ContentType_SSML : smartspeech::synthesis::v1::SynthesisRequest_ContentType_TEXT;
+  request.set_content_type(content_type);
   request.set_voice("Bys_8000");
 
   responder_ = stub_->AsyncSynthesize(&context_, request, &cq, event_tag);

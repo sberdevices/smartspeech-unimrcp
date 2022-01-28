@@ -249,9 +249,10 @@ void channel::update_mrcp_params(mrcp_message_t *request) {
   // todo: get voice name from request
 }
 
-void channel::start_synthesis(const std::string &text) {
+void channel::start_synthesis(const std::string &text, bool is_ssml) {
   smartspeech::grpc::synthesis::connection::params p{};
   p.text = text;
+  p.is_ssml = is_ssml;
   smartspeech_grpc_synthesis_connection_ = smartspeech_grpc_client_
                                                ->start_synth_connection(
                                                    p,
@@ -295,7 +296,13 @@ void channel::process_synthesis(mrcp_message_t *request) {
   update_mrcp_params(request);
   synthesis_request_ = request;
   std::string text = request->body.buf;
-  start_synthesis(text);
+  bool is_ssml = false;
+  mrcp_generic_header_t *generic_header = mrcp_generic_header_get(request);
+  if (generic_header && mrcp_generic_header_property_check(request, GENERIC_HEADER_CONTENT_TYPE) == TRUE) {
+    const char *content_type = generic_header->content_type.buf;
+    is_ssml = (strstr(content_type, "ssml")) ? true : false;
+  }
+  start_synthesis(text, is_ssml);
   mrcp_message_t *response = mrcp_response_create(request, request->pool);
   response->start_line.request_state = MRCP_REQUEST_STATE_INPROGRESS;
   send_mrcp_response(response);

@@ -47,7 +47,7 @@ class channel {
   void send_result_event();
   void send_error_event(const std::string &error_msg);
   void update_mrcp_params(mrcp_message_t *request);
-  void start_synthesis(const std::string &text);
+  void start_synthesis(const std::string &text, bool is_ssml);
   void shedule_stop_synthesis();
   void stop_synthesis();
 

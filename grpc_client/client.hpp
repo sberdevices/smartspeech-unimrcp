@@ -109,6 +109,7 @@ class connection : public abstract_connection {
   using on_error = std::function<void(const std::string &)>;
 
   struct params {
+    bool is_ssml;
     std::string text;
   };
 

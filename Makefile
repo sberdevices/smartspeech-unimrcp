@@ -21,5 +21,5 @@ run-test-recognize:
 clean:
 	rm -rf bazel-*
 	rm -rf output
-
+	rm -f compile_commands.json
 

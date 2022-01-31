@@ -77,6 +77,10 @@ load_apr_util()
 load_sofia_sip()
 load_unimrcp()
 
+
+load("//third_party/bazel-compile-commands:direct.bzl", "load_bazel_compile_commands")
+load_bazel_compile_commands()
+
 load("@rules_foreign_cc//foreign_cc:repositories.bzl", "rules_foreign_cc_dependencies")
 rules_foreign_cc_dependencies()
 

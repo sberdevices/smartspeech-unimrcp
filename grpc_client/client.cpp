@@ -4,6 +4,23 @@
 
 namespace smartspeech::grpc {
 
+class authenticator : public ::grpc::MetadataCredentialsPlugin {
+public:
+  authenticator(const std::string& token) : token_(token) {}
+
+  ::grpc::Status GetMetadata(::grpc::string_ref service_url, ::grpc::string_ref method_name,
+      const ::grpc::AuthContext& channel_auth_context, std::multimap<::grpc::string, ::grpc::string>* metadata) override {
+    ::grpc::string auth = ::grpc::string("Bearer ") + token_;
+
+    std::cout << "^^^" << std::endl;
+    metadata->insert(std::make_pair("authorization", auth));
+    return ::grpc::Status::OK;
+  }
+
+private:
+  std::string token_;
+};
+
 abstract_connection::abstract_connection(const std::shared_ptr<::grpc::Channel> &channel)
     : stub_(smartspeech::recognition::v1::SmartSpeech::NewStub(channel))
     , active_(true) {}
@@ -23,7 +40,9 @@ client::client(const params &p) {
   }
   channel_ = ::grpc::CreateChannel(
       p.host,
-      ::grpc::CompositeChannelCredentials(::grpc::SslCredentials(ssl_opts), ::grpc::AccessTokenCredentials(p.token)));
+      ::grpc::CompositeChannelCredentials(::grpc::SslCredentials(ssl_opts), 
+        ::grpc::MetadataCredentialsFromPlugin(std::unique_ptr<::grpc::MetadataCredentialsPlugin>(new authenticator(p.token))))
+  );
 
   worker_thread_ = std::thread([this] {
     void *tag = nullptr;

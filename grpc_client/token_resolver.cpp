@@ -4,7 +4,6 @@
 #include <random>
 #include <nlohmann/json.hpp>
 
-
 namespace {
 std::string get_uuid() {
   static std::random_device dev;

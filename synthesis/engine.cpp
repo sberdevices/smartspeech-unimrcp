@@ -37,7 +37,7 @@ static struct mrcp_engine_method_vtable_t smartspeech_recognize_engine_vtable = 
 // event loop
 apt_bool_t event_loop_proceed(apt_task_t *task, apt_task_msg_t *msg) {
   auto *event_loop_msg = reinterpret_cast<event_loop_msg_t *>(msg->data);
-  auto *func = static_cast<std::function<void(void)>*>(event_loop_msg->func);
+  auto *func = static_cast<std::function<void(void)> *>(event_loop_msg->func);
   (*func)();
   delete func;
 
@@ -70,8 +70,8 @@ apt_bool_t smartspeech_mrcp_synthesis_engine_open(mrcp_engine_t *mrcp_engine) {
 
   auto *smartspeech_synthesis_engine = static_cast<smartspeech::mrcp::synthesis::engine *>(mrcp_engine->obj);
   if (!smartspeech_synthesis_engine) {
-	apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech mrcp synthesis engine not found");
-	return FALSE;
+    apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech mrcp synthesis engine not found");
+    return FALSE;
   }
 
   const char *smartmarket_secret = apr_table_get(engine_config, "smartmarket-secret");
@@ -172,21 +172,11 @@ bool engine::start_service() {
     apt_task_start(task);
   }
 
-  std::string token{};
-  if (config_.smartspeech_token.empty()) {
-    token_resolver_ = std::make_unique<smartspeech::token_resolver>(
-        config_.smartmarket_url, config_.smartmarket_client_id, config_.smartmarket_secret);
-    token = token_resolver_->get_token(config_.smartmarket_scope);
-  } else {
-    token = config_.smartspeech_token;
-  }
-  if (token.empty()) {
-    return false;
-  }
+  token_resolver_ = std::make_unique<smartspeech::token_resolver>(
+      config_.smartmarket_url, config_.smartmarket_client_id, config_.smartmarket_secret, config_.smartmarket_scope);
 
-  smartspeech::grpc::client::params p{};
-  p.host = config_.smartspeech_url;
-  p.token = token;
+  smartspeech::grpc::client::params p{.host = config_.smartspeech_url, .token_resolver = *token_resolver_};
+
   smartspeech_grpc_client_ = std::make_shared<smartspeech::grpc::client>(p);
   return true;
 }

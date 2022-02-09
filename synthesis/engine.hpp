@@ -11,12 +11,12 @@ extern "C" {
 }
 #endif
 
-#include "grpc_client/client.hpp"
-#include "grpc_client/token_resolver.hpp"
 #include <memory>
 #include <string>
 
 #include "channel.hpp"
+#include "grpc_client/client.hpp"
+#include "grpc_client/token_resolver.hpp"
 
 namespace smartspeech::mrcp::synthesis {
 class engine {

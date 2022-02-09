@@ -5,20 +5,20 @@
 namespace smartspeech::grpc {
 
 class authenticator : public ::grpc::MetadataCredentialsPlugin {
-public:
-  authenticator(const std::string& token) : token_(token) {}
+ public:
+  authenticator(smartspeech::token_resolver &token_resolver)
+      : token_resolver_(token_resolver) {}
 
   ::grpc::Status GetMetadata(::grpc::string_ref service_url, ::grpc::string_ref method_name,
-      const ::grpc::AuthContext& channel_auth_context, std::multimap<::grpc::string, ::grpc::string>* metadata) override {
-    ::grpc::string auth = ::grpc::string("Bearer ") + token_;
-
-    std::cout << "^^^" << std::endl;
+                             const ::grpc::AuthContext &channel_auth_context,
+                             std::multimap<::grpc::string, ::grpc::string> *metadata) override {
+    ::grpc::string auth = ::grpc::string("Bearer ") + token_resolver_.get_token();
     metadata->insert(std::make_pair("authorization", auth));
     return ::grpc::Status::OK;
   }
 
-private:
-  std::string token_;
+ private:
+  smartspeech::token_resolver &token_resolver_;
 };
 
 abstract_connection::abstract_connection(const std::shared_ptr<::grpc::Channel> &channel)
@@ -39,10 +39,10 @@ client::client(const params &p) {
     ssl_opts.pem_root_certs = p.root_ca;
   }
   channel_ = ::grpc::CreateChannel(
-      p.host,
-      ::grpc::CompositeChannelCredentials(::grpc::SslCredentials(ssl_opts), 
-        ::grpc::MetadataCredentialsFromPlugin(std::unique_ptr<::grpc::MetadataCredentialsPlugin>(new authenticator(p.token))))
-  );
+      p.host, ::grpc::CompositeChannelCredentials(
+                  ::grpc::SslCredentials(ssl_opts),
+                  ::grpc::MetadataCredentialsFromPlugin(
+                      std::unique_ptr<::grpc::MetadataCredentialsPlugin>(new authenticator(p.token_resolver)))));
 
   worker_thread_ = std::thread([this] {
     void *tag = nullptr;
@@ -55,7 +55,7 @@ client::client(const params &p) {
           event_tag->connection->proceed(event_tag->cause, ok);
         } else {
           // todo: fix grpc pure virtual call
-          //delete event_tag->connection;
+          // delete event_tag->connection;
         }
         delete event_tag;
       }
@@ -70,9 +70,9 @@ client::~client() {
   }
 }
 
-std::unique_ptr<recognition::connection> client::start_recognition_connection(const recognition::connection::params &p,
-                                                                              recognition::connection::on_result &&result_cb,
-                                                                              recognition::connection::on_error &&error_cb) {
+std::unique_ptr<recognition::connection> client::start_recognition_connection(
+    const recognition::connection::params &p, recognition::connection::on_result &&result_cb,
+    recognition::connection::on_error &&error_cb) {
   return std::make_unique<recognition::connection>(channel_, cq_, p, std::move(result_cb), std::move(error_cb));
 }
 
@@ -112,8 +112,8 @@ void recognition::connection::proceed(enum grpc_event_tag::cause cause, bool ok)
     return;
   }
 
-  // there are no more messages to be received from the server (earlier call to AsyncReaderInterface::Read that yielded a failed result
-  // cq->Next(&read_tag, &ok) filled in 'ok' with 'false'
+  // there are no more messages to be received from the server (earlier call to AsyncReaderInterface::Read that yielded
+  // a failed result cq->Next(&read_tag, &ok) filled in 'ok' with 'false'
   if (cause == grpc_event_tag::cause::read && !ok) {
     auto event_tag = new grpc_event_tag(grpc_event_tag::cause::finish, this);
     responder_->Finish(&status_, event_tag);
@@ -202,7 +202,6 @@ void recognition::connection::read() {
 }
 
 void recognition::connection::on_read() {
-  std::cout << "on read: " << response_.results()[0].text() << std::endl;
   recognition::result r{};
   r.eou = response_.eou();
   r.words = response_.results()[0].text();
@@ -218,15 +217,15 @@ synthesis::connection::connection(const std::shared_ptr<::grpc::Channel> &channe
     , cq_(cq)
     , params_(p)
     , on_result_cb_(std::move(result_cb))
-    , on_error_cb_(std::move(error_cb))
-{
+    , on_error_cb_(std::move(error_cb)) {
   auto *event_tag = new grpc_event_tag(grpc_event_tag::cause::start_call, this);
 
   smartspeech::synthesis::v1::SynthesisRequest request;
   request.set_text(p.text);
   request.set_audio_encoding(smartspeech::synthesis::v1::SynthesisRequest_AudioEncoding_PCM_S16LE);
   request.set_language("ru-RU");
-  auto content_type = (p.is_ssml) ? smartspeech::synthesis::v1::SynthesisRequest_ContentType_SSML : smartspeech::synthesis::v1::SynthesisRequest_ContentType_TEXT;
+  auto content_type = (p.is_ssml) ? smartspeech::synthesis::v1::SynthesisRequest_ContentType_SSML
+                                  : smartspeech::synthesis::v1::SynthesisRequest_ContentType_TEXT;
   request.set_content_type(content_type);
   request.set_voice("Bys_8000");
 
@@ -241,8 +240,8 @@ void synthesis::connection::proceed(enum grpc_event_tag::cause cause, bool ok) {
     return;
   }
 
-  // there are no more messages to be received from the server (earlier call to AsyncReaderInterface::Read that yielded a failed result
-  // cq->Next(&read_tag, &ok) filled in 'ok' with 'false'
+  // there are no more messages to be received from the server (earlier call to AsyncReaderInterface::Read that yielded
+  // a failed result cq->Next(&read_tag, &ok) filled in 'ok' with 'false'
   if (cause == grpc_event_tag::cause::read && !ok) {
     auto event_tag = new grpc_event_tag(grpc_event_tag::cause::finish, this);
     responder_->Finish(&status_, event_tag);
@@ -258,9 +257,7 @@ void synthesis::connection::proceed(enum grpc_event_tag::cause cause, bool ok) {
       read();
       break;
     case grpc_event_tag::cause::finish:
-      if (status_.ok()) {
-        std::cout << "FIN\n";
-      } else {
+      if (!status_.ok()) {
         std::cerr << "FIN err: " << status_.error_message() << ": " << status_.error_details();
       }
       {
@@ -280,6 +277,7 @@ void synthesis::connection::read() {
 
 void synthesis::connection::on_read() {
   synthesis::result r{};
+  r.end = false;
   r.buffer.assign(response_.data().data(), response_.data().data() + response_.data().size());
   on_result_cb_(r);
 }

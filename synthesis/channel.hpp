@@ -1,5 +1,6 @@
 #pragma once
 
+#include <fstream>
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -9,24 +10,24 @@ extern "C" {
 #include <mrcp_engine_types.h>
 #include <mrcp_message.h>
 
-
 #ifdef __cplusplus
 }
 #endif
 
 #include <memory>
-#include <vector>
 #include <mutex>
+#include <vector>
+
 #include "grpc_client/client.hpp"
 
 namespace smartspeech::mrcp::synthesis {
 class channel {
  public:
   struct params {
-	mrcp_engine_t *mrcp_engine;
-	apr_pool_t *pool;
-	apt_consumer_task_t *event_loop;
-	std::shared_ptr<smartspeech::grpc::client> smartspeech_grpc_client;
+    mrcp_engine_t *mrcp_engine;
+    apr_pool_t *pool;
+    apt_consumer_task_t *event_loop;
+    std::shared_ptr<smartspeech::grpc::client> smartspeech_grpc_client;
   };
 
  public:
@@ -36,6 +37,7 @@ class channel {
   mrcp_engine_channel_t *mrcp_channel() const;
 
   void feel_voice_buffer(void *buffer, size_t length);
+  void check_synth_comlete();
   apt_bool_t on_open();
   apt_bool_t on_close();
   apt_bool_t on_message(mrcp_message_t *request);
@@ -61,11 +63,9 @@ class channel {
   mrcp_engine_channel_t *mrcp_channel_;
 
   std::shared_ptr<smartspeech::grpc::client> smartspeech_grpc_client_;
-  smartspeech::grpc::synthesis::connection* smartspeech_grpc_synthesis_connection_;
+  smartspeech::grpc::synthesis::connection *smartspeech_grpc_synthesis_connection_;
 
-  enum class state {
-	idle, synthesis
-  } state_;
+  enum class state { idle, synthesis } state_;
 
   struct mrcp_params {
     std::string voice_name;
@@ -77,5 +77,9 @@ class channel {
 
   std::mutex voice_buffer_m_;
   std::vector<uint8_t> voice_buffer_;
+  std::atomic_bool synth_complete_flag_;
+
+  // debug
+  std::fstream debug_pcm_file_;
 };
-}
+}  // namespace smartspeech::mrcp::synthesis

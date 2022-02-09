@@ -9,23 +9,23 @@ extern "C" {
 #include <mrcp_engine_types.h>
 #include <mrcp_message.h>
 
-
 #ifdef __cplusplus
 }
 #endif
 
 #include <memory>
 #include <vector>
+
 #include "grpc_client/client.hpp"
 
 namespace smartspeech::mrcp::recognition {
 class channel {
  public:
   struct params {
-	mrcp_engine_t *mrcp_engine;
-	apr_pool_t *pool;
-	apt_consumer_task_t *event_loop;
-	std::shared_ptr<smartspeech::grpc::client> smartspeech_grpc_client;
+    mrcp_engine_t *mrcp_engine;
+    apr_pool_t *pool;
+    apt_consumer_task_t *event_loop;
+    std::shared_ptr<smartspeech::grpc::client> smartspeech_grpc_client;
   };
 
  public:
@@ -62,15 +62,13 @@ class channel {
   mrcp_engine_channel_t *mrcp_channel_;
 
   std::shared_ptr<smartspeech::grpc::client> smartspeech_grpc_client_;
-  smartspeech::grpc::recognition::connection* smartspeech_grpc_recognition_connection_;
+  smartspeech::grpc::recognition::connection *smartspeech_grpc_recognition_connection_;
 
-  enum class state {
-	idle, waiting_vad, recognizing
-  } state_;
+  enum class state { idle, waiting_vad, recognizing } state_;
 
   struct mrcp_params {
-	int32_t no_input_timeout_ms;
-	int32_t max_speech_timeout_ms;
+    int32_t no_input_timeout_ms;
+    int32_t max_speech_timeout_ms;
   };
   mrcp_params mrcp_params_;
 
@@ -80,4 +78,4 @@ class channel {
 
   std::vector<uint8_t> audio_buffer_;
 };
-}
+}  // namespace smartspeech::mrcp::recognition

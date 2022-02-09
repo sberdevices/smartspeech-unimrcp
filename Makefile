@@ -12,8 +12,8 @@ unimrcp-image:
 start-test-server:
 	docker run --rm -it --name smartspeech-unimrcp-server -v ${PWD}:/src -w /src --env-file .env unimrcp:1.7 package/start-unimrcp.sh
 
-run-test-synth:
-	docker run
+run-synth:
+	docker exec -t -w /src smartspeech-unimrcp-server package/run-synth.sh
 
 run-test-recognize:
 	docker run

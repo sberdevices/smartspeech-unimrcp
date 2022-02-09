@@ -1,4 +1,5 @@
 #include <mrcp_recog_engine.h>
+
 #include "synthesis/cimpl.h"
 
 MRCP_PLUGIN_VERSION_DECLARE

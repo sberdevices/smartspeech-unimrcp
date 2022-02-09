@@ -3,12 +3,13 @@
 #include <grpc++/grpc++.h>
 #include <grpcpp/alarm.h>
 
-#include "grpc_client/recognition.grpc.pb.h"
-#include "grpc_client/synthesis.grpc.pb.h"
-
 #include <memory>
 #include <string>
 #include <thread>
+
+#include "grpc_client/recognition.grpc.pb.h"
+#include "grpc_client/synthesis.grpc.pb.h"
+#include "token_resolver.hpp"
 
 namespace smartspeech::grpc {
 class abstract_connection;
@@ -137,8 +138,8 @@ class client {
  public:
   struct params {
     std::string host;
-    std::string token;
     std::string root_ca;
+    smartspeech::token_resolver &token_resolver;
   };
   explicit client(const params &p);
   ~client();

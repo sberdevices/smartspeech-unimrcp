@@ -22,5 +22,5 @@ plugin_config=`cat smartspeech-plugins-config.xml`
 # remove unimrcp demo plugins; add smartspeech plugins
 xmlstarlet ed -L -d 'unimrcpserver/components/plugin-factory' -s 'unimrcpserver/components' -t elem -n plugin-factory -v "$plugin_config" /usr/local/unimrcp/conf/unimrcpserver.xml 
 cat /usr/local/unimrcp/conf/unimrcpserver.xml | xmlstarlet unesc | xmlstarlet fo -R | tee /usr/local/unimrcp/conf/unimrcpserver.xml
-cd /usr/local/unimrcp/bin && ./unimrcpserver -w -c ../conf/dirlayout.xml -l 7
+cd /usr/local/unimrcp/bin && ./unimrcpserver -w -c ../conf/dirlayout.xml
 

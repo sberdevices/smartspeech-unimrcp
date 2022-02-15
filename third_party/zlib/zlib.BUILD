@@ -11,13 +11,7 @@ filegroup(
 
 cmake(
     name = "zlib",
-    generate_args = select({
-        "@platforms//os:windows": ["-GNinja"],
-        "//conditions:default": [],
-    }),
+    copts = ["-fPIC"],
     lib_source = ":all_srcs",
-    out_static_libs = select({
-        "@platforms//os:windows": ["zlibstatic.lib"],
-        "//conditions:default": ["libz.a"],
-    }),
+    out_static_libs = ["libz.a"],
 )

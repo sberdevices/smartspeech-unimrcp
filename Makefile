@@ -6,6 +6,9 @@ bazel-image:
 build-plugins:
 	docker run --rm --name smartspeech-plugins-builder -t -v ${PWD}:/src -v bazel-root:/bazel-root -w /src ubuntu-bazel:1.0 package/build-plugins.sh
 
+build-plugins-drop-cache:
+	docker run --rm --name smartspeech-plugins-builder -t -v ${PWD}:/src -v bazel-root:/bazel-root -w /src ubuntu-bazel:1.0 package/build-plugins.sh --drop-cache
+
 unimrcp-image:
 	docker build --no-cache -t unimrcp:1.7 -f docker/Dockerfile.runner .
 
@@ -15,8 +18,8 @@ start-test-server:
 run-synth:
 	docker exec -t -w /src smartspeech-unimrcp-server package/run-synth.sh
 
-run-test-recognize:
-	docker run
+run-recog:
+	docker exec -t -w /src smartspeech-unimrcp-server package/run-recog.sh
 
 clean:
 	rm -rf bazel-*

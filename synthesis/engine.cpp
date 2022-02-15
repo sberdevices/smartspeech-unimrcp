@@ -93,11 +93,13 @@ apt_bool_t smartspeech_mrcp_synthesis_engine_open(mrcp_engine_t *mrcp_engine) {
 
   smartspeech_synthesis_engine->set_config(config);
 
+  apt_log(APT_LOG_MARK, APT_PRIO_INFO, "SmartSpeech synthesis starting service!");
   if (!smartspeech_synthesis_engine->start_service()) {
     apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "Cant get token for smartspeech");
     return FALSE;
   }
-
+   
+  apt_log(APT_LOG_MARK, APT_PRIO_INFO, "SmartSpeech synthesis engine opened!");
   return mrcp_engine_open_respond(mrcp_engine, TRUE);
 }
 
@@ -141,7 +143,7 @@ engine::engine(apr_pool_t *pool)
   auto *msg_pool = apt_task_msg_pool_create_dynamic(sizeof(event_loop_msg_t), pool);
   event_loop_ = apt_consumer_task_create(this, msg_pool, pool);
   auto *task = apt_consumer_task_base_get(event_loop_);
-  apt_task_name_set(task, "smartspeech_synthesis");
+  apt_task_name_set(task, "synthesis");
   auto *vtable = apt_task_vtable_get(task);
   if (vtable) {
     vtable->process_msg = event_loop_proceed;
@@ -167,17 +169,17 @@ void engine::set_config(const config &config) {
 }
 
 bool engine::start_service() {
+  token_resolver_ = std::make_unique<smartspeech::token_resolver>(
+      config_.smartmarket_url, config_.smartmarket_client_id, config_.smartmarket_secret, config_.smartmarket_scope);
+
+  smartspeech::grpc::client::params p{.host = config_.smartspeech_url, .token_resolver = *token_resolver_};
+  smartspeech_grpc_client_ = std::make_shared<smartspeech::grpc::client>(p);
+  
   if (event_loop_) {
     auto *task = apt_consumer_task_base_get(event_loop_);
     apt_task_start(task);
   }
 
-  token_resolver_ = std::make_unique<smartspeech::token_resolver>(
-      config_.smartmarket_url, config_.smartmarket_client_id, config_.smartmarket_secret, config_.smartmarket_scope);
-
-  smartspeech::grpc::client::params p{.host = config_.smartspeech_url, .token_resolver = *token_resolver_};
-
-  smartspeech_grpc_client_ = std::make_shared<smartspeech::grpc::client>(p);
   return true;
 }
 

@@ -151,7 +151,7 @@ class client {
                                                                 synthesis::connection::on_error &&error_cb);
 
  private:
-  ::grpc::CompletionQueue cq_;
+  std::unique_ptr<::grpc::CompletionQueue> cq_;
   std::shared_ptr<::grpc::Channel> channel_;
   std::thread worker_thread_;
 };

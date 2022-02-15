@@ -33,7 +33,11 @@ bool abstract_connection::active() const {
   return active_;
 }
 
-client::client(const params &p) {
+client::client(const params &p) 
+  : cq_(nullptr)
+  , channel_(nullptr)  
+{
+  cq_.reset(new ::grpc::CompletionQueue());
   ::grpc::SslCredentialsOptions ssl_opts;
   if (!p.root_ca.empty()) {
     ssl_opts.pem_root_certs = p.root_ca;
@@ -48,7 +52,7 @@ client::client(const params &p) {
     void *tag = nullptr;
     bool ok = false;
 
-    while (cq_.Next(&tag, &ok)) {
+    while (cq_->Next(&tag, &ok)) {
       if (tag) {
         auto event_tag = static_cast<grpc_event_tag *>(tag);
         if (event_tag->connection->active()) {
@@ -64,7 +68,7 @@ client::client(const params &p) {
 }
 
 client::~client() {
-  cq_.Shutdown();
+  cq_->Shutdown();
   if (worker_thread_.joinable()) {
     worker_thread_.join();
   }
@@ -73,13 +77,13 @@ client::~client() {
 std::unique_ptr<recognition::connection> client::start_recognition_connection(
     const recognition::connection::params &p, recognition::connection::on_result &&result_cb,
     recognition::connection::on_error &&error_cb) {
-  return std::make_unique<recognition::connection>(channel_, cq_, p, std::move(result_cb), std::move(error_cb));
+  return std::make_unique<recognition::connection>(channel_, *cq_, p, std::move(result_cb), std::move(error_cb));
 }
 
 std::unique_ptr<synthesis::connection> client::start_synth_connection(const synthesis::connection::params &p,
                                                                       synthesis::connection::on_result &&result_cb,
                                                                       synthesis::connection::on_error &&error_cb) {
-  return std::make_unique<synthesis::connection>(channel_, cq_, p, std::move(result_cb), std::move(error_cb));
+  return std::make_unique<synthesis::connection>(channel_, *cq_, p, std::move(result_cb), std::move(error_cb));
 }
 
 recognition::connection::connection(const std::shared_ptr<::grpc::Channel> &channel, ::grpc::CompletionQueue &cq,

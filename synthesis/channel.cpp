@@ -1,4 +1,5 @@
 #include "channel.hpp"
+#include <mutex>
 
 #include "event_loop.hpp"
 
@@ -90,6 +91,7 @@ apt_bool_t smartspeech_mrcp_synthesis_audio_stream_read(mpf_audio_stream_t *stre
   if (channel) {
     channel->feel_voice_buffer(frame->codec_frame.buffer, frame->codec_frame.size);
     frame->type |= MEDIA_FRAME_TYPE_AUDIO;
+    channel->check_synth_comlete();
   }
   return TRUE;
 }
@@ -100,7 +102,8 @@ channel::channel(const params &params)
     , event_loop_(params.event_loop)
     , smartspeech_grpc_client_(params.smartspeech_grpc_client)
     , state_(state::idle)
-    , synthesis_request_(nullptr) {
+    , synthesis_request_(nullptr)
+    , synth_complete_flag_(false){
   mrcp_params_.voice_name = "May_LQ";
 
   /* create termination for audio */
@@ -116,7 +119,9 @@ channel::channel(const params &params)
                                              termination, params.pool);
 }
 
-channel::~channel() {}
+channel::~channel() {
+  debug_pcm_file_.close();
+}
 
 mrcp_engine_channel_t *channel::mrcp_channel() const {
   return mrcp_channel_;
@@ -132,6 +137,16 @@ void channel::feel_voice_buffer(void *buffer, size_t length) {
       size_t available = voice_buffer_.size();
       memcpy(buffer, voice_buffer_.data(), available);
       voice_buffer_.clear();
+    }
+  }
+}
+
+void channel::check_synth_comlete() {
+  if (state_ == state::synthesis) {
+    std::lock_guard<std::mutex> l(voice_buffer_m_);
+    if (synth_complete_flag_ && voice_buffer_.empty()) {
+      shedule_stop_synthesis();
+      send_result_event();
     }
   }
 }
@@ -191,11 +206,11 @@ apt_bool_t channel::on_message(mrcp_message_t *request) {
 
 void channel::on_voice(const smartspeech::grpc::synthesis::result &result) {
   if (!result.end) {
+    synth_complete_flag_ = false;
     std::lock_guard<std::mutex> l(voice_buffer_m_);
     voice_buffer_.insert(voice_buffer_.end(), result.buffer.begin(), result.buffer.end());
   } else {
-    shedule_stop_synthesis();
-    send_result_event();
+    synth_complete_flag_ = true;
   }
 }
 
@@ -218,6 +233,10 @@ void channel::send_mrcp_response(mrcp_message_t *response) {
 }
 
 void channel::send_result_event() {
+  if (!synthesis_request_) {
+    std::cerr << "error: send_result_event: synthesis_request == null\n";
+    return;
+  }
   auto response = mrcp_event_create(synthesis_request_, SYNTHESIZER_SPEAK_COMPLETE, synthesis_request_->pool);
   response->start_line.request_state = MRCP_REQUEST_STATE_COMPLETE;
   auto header = static_cast<mrcp_synth_header_t *>(mrcp_resource_header_prepare(response));
@@ -228,7 +247,11 @@ void channel::send_result_event() {
   send_mrcp_response(response);
 }
 
-void channel::send_error_event(const std::string &error_msg) {
+void channel::send_error_event(const std::string &error_msg) { 
+  if (!synthesis_request_) {
+    std::cerr << "error: send_error_event: synthesis_request == null\n";
+    return;
+  }
   mrcp_message_t *response =
       mrcp_event_create(synthesis_request_, SYNTHESIZER_SPEAK_COMPLETE, synthesis_request_->pool);
   response->start_line.request_state = MRCP_REQUEST_STATE_COMPLETE;
@@ -249,9 +272,10 @@ void channel::update_mrcp_params(mrcp_message_t *request) {
   // todo: get voice name from request
 }
 
-void channel::start_synthesis(const std::string &text) {
+void channel::start_synthesis(const std::string &text, bool is_ssml) {
   smartspeech::grpc::synthesis::connection::params p{};
   p.text = text;
+  p.is_ssml = is_ssml;
   smartspeech_grpc_synthesis_connection_ = smartspeech_grpc_client_
                                                ->start_synth_connection(
                                                    p,
@@ -295,7 +319,13 @@ void channel::process_synthesis(mrcp_message_t *request) {
   update_mrcp_params(request);
   synthesis_request_ = request;
   std::string text = request->body.buf;
-  start_synthesis(text);
+  bool is_ssml = false;
+  mrcp_generic_header_t *generic_header = mrcp_generic_header_get(request);
+  if (generic_header && mrcp_generic_header_property_check(request, GENERIC_HEADER_CONTENT_TYPE) == TRUE) {
+    const char *content_type = generic_header->content_type.buf;
+    is_ssml = (strstr(content_type, "ssml")) ? true : false;
+  }
+  start_synthesis(text, is_ssml);
   mrcp_message_t *response = mrcp_response_create(request, request->pool);
   response->start_line.request_state = MRCP_REQUEST_STATE_INPROGRESS;
   send_mrcp_response(response);

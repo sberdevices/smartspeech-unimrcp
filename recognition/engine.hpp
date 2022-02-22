@@ -4,31 +4,32 @@
 extern "C" {
 #endif
 
-#include <mrcp_engine_types.h>
 #include <apt_consumer_task.h>
+#include <mrcp_engine_types.h>
 
 #ifdef __cplusplus
 }
 #endif
 
-#include <string>
 #include <memory>
-#include <grpc_client/client.hpp>
-#include <grpc_client/token_resolver.hpp>
+#include <string>
 
 #include "channel.hpp"
+#include "grpc_client/client.hpp"
+#include "grpc_client/token_resolver.hpp"
 
 namespace smartspeech::mrcp::recognition {
 class engine {
  public:
   struct config {
-	std::string smartspeech_url;
-	std::string smartmarket_url;
-        std::string smartmarket_client_id;
-        std::string smartmarket_secret;
-        std::string smartmarket_scope;
-        std::string smartspeech_token;
+    std::string smartspeech_url;
+    std::string smartmarket_url;
+    std::string smartmarket_client_id;
+    std::string smartmarket_secret;
+    std::string smartmarket_scope;
+    std::string smartspeech_token;
   };
+
  public:
   explicit engine(apr_pool_t *pool);
   ~engine();
@@ -51,4 +52,4 @@ class engine {
   std::unique_ptr<smartspeech::token_resolver> token_resolver_;
   std::shared_ptr<smartspeech::grpc::client> smartspeech_grpc_client_;
 };
-}
+}  // namespace smartspeech::mrcp::recognition

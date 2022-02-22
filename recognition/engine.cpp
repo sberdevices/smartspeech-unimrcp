@@ -1,4 +1,5 @@
 #include "engine.hpp"
+
 #include "cimpl.h"
 #include "event_loop.hpp"
 
@@ -25,8 +26,9 @@ static apt_bool_t smartspeech_mrcp_recognition_engine_destroy(mrcp_engine_t *mrc
 static apt_bool_t smartspeech_mrcp_recognition_engine_close(mrcp_engine_t *mrcp_engine);
 static mrcp_engine_channel_t *smartspeech_mrcp_recognition_channel_create(mrcp_engine_t *mrcp_engine, apr_pool_t *pool);
 
-static struct mrcp_engine_method_vtable_t smartspeech_recognize_engine_vtable = {smartspeech_mrcp_recognition_engine_destroy, smartspeech_mrcp_recognition_engine_open, smartspeech_mrcp_recognition_engine_close,
-																				 smartspeech_mrcp_recognition_channel_create};
+static struct mrcp_engine_method_vtable_t smartspeech_recognize_engine_vtable = {
+    smartspeech_mrcp_recognition_engine_destroy, smartspeech_mrcp_recognition_engine_open,
+    smartspeech_mrcp_recognition_engine_close, smartspeech_mrcp_recognition_channel_create};
 
 #ifdef __cplusplus
 }
@@ -35,7 +37,7 @@ static struct mrcp_engine_method_vtable_t smartspeech_recognize_engine_vtable = 
 // event loop
 apt_bool_t event_loop_proceed(apt_task_t *task, apt_task_msg_t *msg) {
   auto *event_loop_msg = reinterpret_cast<event_loop_msg_t *>(msg->data);
-  auto *func = static_cast<std::function<void(void)>*>(event_loop_msg->func);
+  auto *func = static_cast<std::function<void(void)> *>(event_loop_msg->func);
   (*func)();
   delete func;
 
@@ -44,20 +46,20 @@ apt_bool_t event_loop_proceed(apt_task_t *task, apt_task_msg_t *msg) {
 
 apt_bool_t smartspeech_mrcp_recognition_engine_open(mrcp_engine_t *mrcp_engine) {
   if (!mrcp_engine->config) {
-	apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "unimrcp config not found");
-	return FALSE;
+    apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "unimrcp config not found");
+    return FALSE;
   }
   apr_table_t *engine_config = mrcp_engine->config->params;
 
   const char *smartspeech_url = apr_table_get(engine_config, "smartspeech-url");
   if (!smartspeech_url) {
-	apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech url not found");
-	return FALSE;
+    apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech url not found");
+    return FALSE;
   }
   const char *smartmarket_url = apr_table_get(engine_config, "smartmarket-url");
   if (!smartmarket_url) {
-	apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartmarket url not found");
-	return FALSE;
+    apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartmarket url not found");
+    return FALSE;
   }
 
   const char *smartmarket_client_id = apr_table_get(engine_config, "smartmarket-client-id");
@@ -77,8 +79,8 @@ apt_bool_t smartspeech_mrcp_recognition_engine_open(mrcp_engine_t *mrcp_engine) 
 
   auto *smartspeech_recognition_engine = static_cast<smartspeech::mrcp::recognition::engine *>(mrcp_engine->obj);
   if (!smartspeech_recognition_engine) {
-	apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech mrcp recognition engine not found");
-	return FALSE;
+    apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech mrcp recognition engine not found");
+    return FALSE;
   }
 
   smartspeech::mrcp::recognition::engine::config config{};
@@ -91,11 +93,14 @@ apt_bool_t smartspeech_mrcp_recognition_engine_open(mrcp_engine_t *mrcp_engine) 
 
   smartspeech_recognition_engine->set_config(config);
 
+  apt_log(APT_LOG_MARK, APT_PRIO_INFO, "SmartSpeech recogniton starting service!");
   if (!smartspeech_recognition_engine->start_service()) {
     apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "Cant get token for smartspeech");
     return FALSE;
   }
 
+
+  apt_log(APT_LOG_MARK, APT_PRIO_INFO, "SmartSpeech recognition engine opened!");
   return mrcp_engine_open_respond(mrcp_engine, TRUE);
 }
 
@@ -110,8 +115,8 @@ apt_bool_t smartspeech_mrcp_recognition_engine_destroy(mrcp_engine_t *mrcp_engin
 apt_bool_t smartspeech_mrcp_recognition_engine_close(mrcp_engine_t *mrcp_engine) {
   auto *smartspeech_recognition_engine = static_cast<smartspeech::mrcp::recognition::engine *>(mrcp_engine->obj);
   if (!smartspeech_recognition_engine) {
-	apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech mrcp recognition engine not found");
-	return FALSE;
+    apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech mrcp recognition engine not found");
+    return FALSE;
   }
   smartspeech_recognition_engine->stop_service();
 
@@ -121,8 +126,8 @@ apt_bool_t smartspeech_mrcp_recognition_engine_close(mrcp_engine_t *mrcp_engine)
 mrcp_engine_channel_t *smartspeech_mrcp_recognition_channel_create(mrcp_engine_t *mrcp_engine, apr_pool_t *pool) {
   auto *smartspeech_recognition_engine = static_cast<smartspeech::mrcp::recognition::engine *>(mrcp_engine->obj);
   if (!smartspeech_recognition_engine) {
-	apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech mrcp recognition engine not found");
-	return FALSE;
+    apt_log(APT_LOG_MARK, APT_PRIO_ERROR, "smartspeech mrcp recognition engine not found");
+    return FALSE;
   }
   auto *smartspeech_recognition_channel = smartspeech_recognition_engine->create_channel(pool);
 
@@ -130,17 +135,20 @@ mrcp_engine_channel_t *smartspeech_mrcp_recognition_channel_create(mrcp_engine_t
 }
 
 namespace smartspeech::mrcp::recognition {
-engine::engine(apr_pool_t *pool) : pool_(pool), event_loop_(nullptr), mrcp_engine_(nullptr) {
+engine::engine(apr_pool_t *pool)
+    : pool_(pool)
+    , event_loop_(nullptr)
+    , mrcp_engine_(nullptr) {
   smartspeech::token_resolver::global_init();
 
   // start event loop thread and dispatcher
   auto *msg_pool = apt_task_msg_pool_create_dynamic(sizeof(event_loop_msg_t), pool);
   event_loop_ = apt_consumer_task_create(this, msg_pool, pool);
   auto *task = apt_consumer_task_base_get(event_loop_);
-  apt_task_name_set(task, "smartspeech_recognize");
+  apt_task_name_set(task, "recognize");
   auto *vtable = apt_task_vtable_get(task);
   if (vtable) {
-	vtable->process_msg = event_loop_proceed;
+    vtable->process_msg = event_loop_proceed;
   }
   // start engine
   mrcp_engine_ = mrcp_engine_create(MRCP_RECOGNIZER_RESOURCE, this, &::smartspeech_recognize_engine_vtable, pool);
@@ -148,8 +156,8 @@ engine::engine(apr_pool_t *pool) : pool_(pool), event_loop_(nullptr), mrcp_engin
 
 engine::~engine() {
   if (event_loop_) {
-	apt_task_t *task = apt_consumer_task_base_get(event_loop_);
-	apt_task_destroy(task);
+    apt_task_t *task = apt_consumer_task_base_get(event_loop_);
+    apt_task_destroy(task);
   }
   smartspeech::token_resolver::global_cleanup();
 }
@@ -163,33 +171,24 @@ void engine::set_config(const config &config) {
 }
 
 bool engine::start_service() {
-  if (event_loop_) {
-	auto *task = apt_consumer_task_base_get(event_loop_);
-	apt_task_start(task);
-  }
-  std::string token{};
-  if (config_.smartspeech_token.empty()) {
-    token_resolver_ = std::make_unique<smartspeech::token_resolver>(
-        config_.smartmarket_url, config_.smartmarket_client_id, config_.smartmarket_secret);
-    token = token_resolver_->get_token(config_.smartmarket_scope);
-  } else {
-    token = config_.smartspeech_token;
-  }
-  if (token.empty()) {
-    return false;
-  }
+  token_resolver_ = std::make_unique<smartspeech::token_resolver>(
+      config_.smartmarket_url, config_.smartmarket_client_id, config_.smartmarket_secret, config_.smartmarket_scope);
 
-  smartspeech::grpc::client::params p{};
-  p.host = config_.smartspeech_url;
-  p.token = token;
+  smartspeech::grpc::client::params p{.host = config_.smartspeech_url, .token_resolver = *token_resolver_};
   smartspeech_grpc_client_ = std::make_shared<smartspeech::grpc::client>(p);
+  
+  if (event_loop_) {
+    auto *task = apt_consumer_task_base_get(event_loop_);
+    apt_task_start(task);
+  
+  }
   return true;
 }
 
 void engine::stop_service() {
   if (event_loop_) {
-	apt_task_t *task = apt_consumer_task_base_get(event_loop_);
-	apt_task_terminate(task, TRUE);
+    apt_task_t *task = apt_consumer_task_base_get(event_loop_);
+    apt_task_terminate(task, TRUE);
   }
 }
 
@@ -202,4 +201,4 @@ channel *engine::create_channel(apr_pool_t *pool) {
 
   return new channel(params);
 }
-}// namespace smartspeech::mrcp::recognition
+}  // namespace smartspeech::mrcp::recognition

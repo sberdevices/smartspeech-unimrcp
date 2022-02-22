@@ -2,11 +2,14 @@
 
 #include <grpc++/grpc++.h>
 #include <grpcpp/alarm.h>
-#include <recognition.grpc.pb.h>
-#include <synthesis.grpc.pb.h>
 
+#include <memory>
 #include <string>
 #include <thread>
+
+#include "grpc_client/recognition.grpc.pb.h"
+#include "grpc_client/synthesis.grpc.pb.h"
+#include "token_resolver.hpp"
 
 namespace smartspeech::grpc {
 class abstract_connection;
@@ -107,6 +110,7 @@ class connection : public abstract_connection {
   using on_error = std::function<void(const std::string &)>;
 
   struct params {
+    bool is_ssml;
     std::string text;
   };
 
@@ -134,8 +138,8 @@ class client {
  public:
   struct params {
     std::string host;
-    std::string token;
     std::string root_ca;
+    smartspeech::token_resolver &token_resolver;
   };
   explicit client(const params &p);
   ~client();
@@ -147,7 +151,7 @@ class client {
                                                                 synthesis::connection::on_error &&error_cb);
 
  private:
-  ::grpc::CompletionQueue cq_;
+  std::unique_ptr<::grpc::CompletionQueue> cq_;
   std::shared_ptr<::grpc::Channel> channel_;
   std::thread worker_thread_;
 };
